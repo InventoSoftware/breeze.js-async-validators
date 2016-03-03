@@ -39,14 +39,14 @@ function validateTarget(entity, coIndex) {
             context.propertyName = aspect.getPropertyPath(p.name);
 
             validators.forEach(validator => {
-                promises.push(validate(target, validator, value, context));
+                promises.push(validate(entity, validator, value, context));
             });
         }
 
         // TODO handle complex types
     });
 
-    // TODO move it
+    // TODO move it outside
     target._triggerValidation = false;
 
     return promises;
@@ -56,10 +56,12 @@ function validate(entityAspect, validator, value, context) {
     return validator.validate(value, context)
         .then(function(res) {
             if (res) {
+                // TODO move it outside
                 entityAspect._addValidationError(res);
                 return res;
             } else {
                 var key = breeze.ValidationError.getKey(validator, context ? context.propertyName : null);
+                // TODO move it outside
                 entityAspect._removeValidationError(key);
                 return null;
             }
