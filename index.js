@@ -1,69 +1,71 @@
 'use strict';
 
-let breeze;
-
-export function setup(breezeGlobal) {
-    breeze = breezeGlobal;
-
+export default function(breeze) {
     const EntityAspect = breeze.EntityAspect;
 
     EntityAspect.prototype.validateEntityAsync = validateEntityAsync;
-}
 
-function validateEntityAsync () {
-    let promise;
+    function validateEntityAsync () {
+        let promise;
 
-    this._processValidationOpAndPublish(function (that) {
-        promise = validateTarget(that.entity);
-    });
-    return promise;
-}
-
-function validateTarget(entity, coIndex) {
-    const
-        promises = [],
-        stype = entity.entityType || entity.complexType,
-        aspect = entity.entityAspect || entity.complexAspect,
-        entityAspect = entity.entityAspect || entity.complexAspect.getEntityAspect(),
-        context = {entity: entityAspect.entity};
-
-    if (coIndex !== undefined) {
-        context.index = coIndex;
+        this._processValidationOpAndPublish(function (that) {
+            promise = validateTarget(that.entity);
+        });
+        return promise;
     }
 
-    stype.getProperties().forEach(p => {
-        var value = entity.getProperty(p.name);
-        var validators = p.getAllValidators();
-        if (validators.length > 0) {
-            context.property = p;
-            context.propertyName = aspect.getPropertyPath(p.name);
+    function validateTarget(entity, coIndex) {
+        const
+            promises = [],
+            stype = entity.entityType || entity.complexType,
+            aspect = entity.entityAspect || entity.complexAspect,
+            entityAspect = entity.entityAspect || entity.complexAspect.getEntityAspect(),
+            context = {entity: entityAspect.entity};
 
-            validators.forEach(validator => {
-                promises.push(validate(entity, validator, value, context));
-            });
+        if (coIndex !== undefined) {
+            context.index = coIndex;
         }
 
-        // TODO handle complex types
-    });
+        stype.getProperties().forEach(p => {
+            var value = entity.getProperty(p.name);
+            var validators = p.getAllValidators();
+            if (validators.length > 0) {
+                context.property = p;
+                context.propertyName = aspect.getPropertyPath(p.name);
 
-    // TODO move it outside
-    target._triggerValidation = false;
+                validators.forEach(validator => {
+                    promises.push(validate(entity, validator, value, context));
+                });
+            }
 
-    return promises;
-}
+            // TODO handle complex types
+        });
 
-function validate(entityAspect, validator, value, context) {
-    return validator.validate(value, context)
-        .then(function(res) {
-            if (res) {
-                // TODO move it outside
-                entityAspect._addValidationError(res);
-                return res;
+        // TODO move it outside
+        entity._triggerValidation = false;
+
+        return promises;
+    }
+
+    function validate(entityAspect, validator, value, context) {
+        return new Promise(resolve => {
+            const result = validator.validate(value, context);
+            if(typeof result === 'function') {
+                result.then(function (res) {
+                    if (res) {
+                        // TODO move it outside
+                        entityAspect._addValidationError(res);
+                        resolve(res);
+                    } else {
+                        var key = breeze.ValidationError.getKey(validator, context ? context.propertyName : null);
+                        // TODO move it outside
+                        entityAspect._removeValidationError(key);
+                        resolve(res);
+                    }
+                });
             } else {
-                var key = breeze.ValidationError.getKey(validator, context ? context.propertyName : null);
-                // TODO move it outside
-                entityAspect._removeValidationError(key);
-                return null;
+                resolve(result);
             }
         });
+    }
 }
