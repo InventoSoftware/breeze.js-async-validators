@@ -15,12 +15,12 @@ function validateEntityAsync () {
     return ok;
 }
 
-function validateTarget(target, coIndex) {
+function validateTarget(entity, coIndex) {
     const
         promises = [],
-        stype = target.entity.entityType || target.entity.complexType,
-        aspect = target.entity.entityAspect || target.entity.complexAspect,
-        entityAspect = target.entity.entityAspect || target.entity.complexAspect.getEntityAspect(),
+        stype = entity.entityType || entity.complexType,
+        aspect = entity.entityAspect || entity.complexAspect,
+        entityAspect = entity.entityAspect || entity.complexAspect.getEntityAspect(),
         context = {entity: entityAspect.entity};
 
     if (coIndex !== undefined) {
@@ -28,7 +28,7 @@ function validateTarget(target, coIndex) {
     }
 
     stype.getProperties().forEach(p => {
-        var value = target.entity.getProperty(p.name);
+        var value = entity.getProperty(p.name);
         var validators = p.getAllValidators();
         if (validators.length > 0) {
             context.property = p;
