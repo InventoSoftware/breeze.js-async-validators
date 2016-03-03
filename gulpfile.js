@@ -1,3 +1,4 @@
-/**
- * Created by hidde on 03.03.2016.
- */
+'use strict';
+
+require('babel-register');
+require('require-dir')('./build/tasks', { recurse:true });
