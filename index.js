@@ -1,18 +1,22 @@
 'use strict';
 
-export function setup(breeze) {
+let breeze;
+
+export function setup(breezeGlobal) {
+    breeze = breezeGlobal;
+
     const EntityAspect = breeze.EntityAspect;
 
     EntityAspect.prototype.validateEntityAsync = validateEntityAsync;
 }
 
-
 function validateEntityAsync () {
-    let ok = true;
+    let promise;
+
     this._processValidationOpAndPublish(function (that) {
-        ok = validateTarget(that.entity);
+        promise = validateTarget(that.entity);
     });
-    return ok;
+    return promise;
 }
 
 function validateTarget(entity, coIndex) {
@@ -46,4 +50,18 @@ function validateTarget(entity, coIndex) {
     target._triggerValidation = false;
 
     return promises;
+}
+
+function validate(entityAspect, validator, value, context) {
+    return validator.validate(value, context)
+        .then(function(res) {
+            if (res) {
+                entityAspect._addValidationError(res);
+                return res;
+            } else {
+                var key = breeze.ValidationError.getKey(validator, context ? context.propertyName : null);
+                entityAspect._removeValidationError(key);
+                return null;
+            }
+        });
 }
