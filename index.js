@@ -1,13 +1,11 @@
 'use strict';
 
-import breeze from 'breeze';
+export function setup(breeze) {
+    const EntityAspect = breeze.EntityAspect;
 
-const EntityAspect = breeze.EntityAspect;
+    EntityAspect.prototype.validateEntityAsync = validateEntityAsync;
+}
 
-/**
- * Enable (default) or disable "Save Queuing" for this EntityManager
- **/
-EntityAspect.prototype.validateEntityAsync = validateEntityAsync;
 
 function validateEntityAsync () {
     let ok = true;
