@@ -2,7 +2,8 @@
 
 export default function(breeze) {
     const EntityAspect = breeze.EntityAspect;
-
+    
+    EntityAspect.prototype.validatePropertyAsync = validatePropertyAsync;
     EntityAspect.prototype.validateEntityAsync = validateEntityAsync;
 
     function validateEntityAsync () {
@@ -34,38 +35,70 @@ export default function(breeze) {
                 context.propertyName = aspect.getPropertyPath(p.name);
 
                 validators.forEach(validator => {
-                    promises.push(validate(entity, validator, value, context));
+                    promises.push(validate(validator, value, context));
                 });
             }
 
             // TODO handle complex types
         });
 
-        // TODO move it outside
-        entity._triggerValidation = false;
+        // // TODO move it outside
+        // entity._triggerValidation = false;
 
         return promises;
     }
 
-    function validate(entityAspect, validator, value, context) {
+    function validate(validator, value, context) {
         return new Promise(resolve => {
             const result = validator.validate(value, context);
             if(typeof result === 'function') {
-                result.then(function (res) {
+                result.then(res => {
                     if (res) {
                         // TODO move it outside
-                        entityAspect._addValidationError(res);
+                        context.entity.entityAspect.addValidationError(res);
                         resolve(res);
                     } else {
-                        var key = breeze.ValidationError.getKey(validator, context ? context.propertyName : null);
+                        const key = breeze.ValidationError.getKey(validator, context ? context.propertyName : null);
                         // TODO move it outside
-                        entityAspect._removeValidationError(key);
+                        context.entity.entityAspect.removeValidationError(key);
                         resolve(res);
                     }
                 });
             } else {
+              if(result) {
+                context.entity.entityAspect.addValidationError(result);
                 resolve(result);
+              } else {
+                const key = breeze.ValidationError.getKey(validator, context ? context.propertyName : null);
+                // TODO move it outside
+                context.entity.entityAspect.removeValidationError(key);
+                resolve(result);
+              }
             }
         });
+    }
+    
+    function validatePropertyAsync (property, context) {
+        var value = this.getPropertyValue(property); // performs validations
+        if (value && value.complexAspect) {
+          return validateTarget(value);
+        }
+        
+        context = context || {};
+        context.entity = this.entity;
+        
+        if (typeof(property) === 'string') {
+          context.property = this.entity.entityType.getProperty(property, true);
+          context.propertyName = property;
+        } else {
+          context.property = property;
+          context.propertyName = property.name;
+        }
+
+        const validators = context.property
+            .getAllValidators()
+            .map(validator => validate(validator, value, context))
+
+        return Promise.all(validators).then(errors => errors.filter(error => error !== null));
     }
 }
