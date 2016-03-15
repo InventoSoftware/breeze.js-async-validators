@@ -49,33 +49,38 @@ export default function(breeze) {
     }
 
     function validate(validator, value, context) {
-        return new Promise(resolve => {
-            const result = validator.validate(value, context);
-            if(typeof result === 'function') {
-                result.then(res => {
-                    if (res) {
-                        // TODO move it outside
-                        context.entity.entityAspect.addValidationError(res);
-                        resolve(res);
-                    } else {
-                        const key = breeze.ValidationError.getKey(validator, context ? context.propertyName : null);
-                        // TODO move it outside
-                        context.entity.entityAspect.removeValidationError(key);
-                        resolve(res);
-                    }
-                });
-            } else {
-              if(result) {
-                context.entity.entityAspect.addValidationError(result);
-                resolve(result);
-              } else {
-                const key = breeze.ValidationError.getKey(validator, context ? context.propertyName : null);
-                // TODO move it outside
-                context.entity.entityAspect.removeValidationError(key);
-                resolve(result);
-              }
-            }
-        });
+      return dispachValidatorFn(validator, value, context).then(res => {
+        if (res) {
+            // TODO move it outside
+            context.entity.entityAspect.addValidationError(res);
+            return res;
+        } else {
+            const key = breeze.ValidationError.getKey(validator, context ? context.propertyName : null);
+            // TODO move it outside
+            context.entity.entityAspect.removeValidationError(key);
+            return res;
+        }
+      });
+    }
+    
+    function dispachValidatorFn (validator, value, additionalContext = {}) {
+      const currentContext = Object.assign({}, validator.context, additionalContext);
+      validator.currentContext = currentContext;
+      return new Promise(resolve => {
+        const result = validator.valFn(value, currentContext);
+        if(_isPromise(result)) {
+          resolve(result);
+        } else {
+          resolve({ valid: result, result: null });
+        }
+      }).then(res => {
+        if (res.valid) {
+          return null;
+        } else {
+          currentContext.value = value;
+          return new breeze.ValidationError(validator, currentContext, validator.getMessage());
+        }
+      });
     }
     
     function validatePropertyAsync (property, context) {
@@ -100,5 +105,13 @@ export default function(breeze) {
             .map(validator => validate(validator, value, context))
 
         return Promise.all(validators).then(errors => errors.filter(error => error !== null));
+    }
+    
+    function _isPromise(obj) {
+      if(!obj) return false;
+
+      return obj['catch'] instanceof Function &&
+        obj['finally'] instanceof Function &&
+        obj['then'] instanceof Function;
     }
 }
